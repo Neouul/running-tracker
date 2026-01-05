@@ -14,8 +14,17 @@ import android.os.Looper
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
-import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.lifecycleScope
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.maps.model.LatLng
+import com.neouul.runningtracker.MainActivity
 import com.neouul.runningtracker.R
+import com.neouul.runningtracker.core.util.Constants
 import com.neouul.runningtracker.core.util.Constants.ACTION_PAUSE_SERVICE
 import com.neouul.runningtracker.core.util.Constants.ACTION_START_OR_RESUME_SERVICE
 import com.neouul.runningtracker.core.util.Constants.ACTION_STOP_SERVICE
@@ -24,21 +33,16 @@ import com.neouul.runningtracker.core.util.Constants.LOCATION_UPDATE_INTERVAL
 import com.neouul.runningtracker.core.util.Constants.NOTIFICATION_CHANNEL_ID
 import com.neouul.runningtracker.core.util.Constants.NOTIFICATION_CHANNEL_NAME
 import com.neouul.runningtracker.core.util.Constants.NOTIFICATION_ID
-import com.google.android.gms.location.*
-import com.google.android.gms.maps.model.LatLng
-import com.neouul.runningtracker.MainActivity
-import com.neouul.runningtracker.core.util.Constants
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import com.neouul.runningtracker.data.local.TrackingPoint
 import com.neouul.runningtracker.data.repository.MainRepository
-import timber.log.Timber
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
-
-typealias Polyline = MutableList<LatLng>
-typealias Polylines = MutableList<Polyline>
 
 @AndroidEntryPoint
 class TrackingService : LifecycleService() {
@@ -51,38 +55,39 @@ class TrackingService : LifecycleService() {
 
     lateinit var fusedLocationProviderClient: FusedLocationProviderClient
 
-
     companion object {
-        val isTracking = MutableLiveData<Boolean>()
-        val pathPoints = MutableLiveData<Polylines>()
+        private val _isTracking = MutableStateFlow(false)
+        val isTracking = _isTracking.asStateFlow()
+
+        private val _pathPoints = MutableStateFlow<List<MutableList<LatLng>>>(mutableListOf())
+        val pathPoints = _pathPoints.asStateFlow()
     }
 
     private fun postInitialValues() {
-        isTracking.postValue(false)
-        pathPoints.postValue(mutableListOf())
+        _isTracking.value = false
+        _pathPoints.value = mutableListOf()
     }
 
     override fun onCreate() {
         super.onCreate()
-        // Hilt 주입 확인 (LifecycleService는 @AndroidEntryPoint 필요)
         postInitialValues()
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this)
 
-        isTracking.observe(this) {
-            updateLocationTracking(it)
+        // LifecycleService의 lifecycleScope를 사용하여 Flow 수집
+        lifecycleScope.launch {
+            isTracking.collect {
+                updateLocationTracking(it)
+            }
         }
         
-        // 데이터 복구 로직
         loadPointsFromDb()
     }
 
     private fun loadPointsFromDb() {
-        // 간단한 복구 로직: 서비스를 시작할 때 DB에 저장된 포인트가 있다면 불러옴
-        // (실제로는 정교한 상태 관리가 필요함)
-        GlobalScope.launch(Dispatchers.IO) {
+        lifecycleScope.launch(Dispatchers.IO) {
             val points = mainRepository.getAllTrackingPointsSync() 
             if (points.isNotEmpty()) {
-                val recoveredPolylines: Polylines = mutableListOf(mutableListOf())
+                val recoveredPolylines: MutableList<MutableList<LatLng>> = mutableListOf(mutableListOf())
                 points.forEach { point ->
                     val latLng = LatLng(point.latitude, point.longitude)
                     recoveredPolylines.last().add(latLng)
@@ -90,7 +95,7 @@ class TrackingService : LifecycleService() {
                         recoveredPolylines.add(mutableListOf())
                     }
                 }
-                pathPoints.postValue(recoveredPolylines)
+                _pathPoints.value = recoveredPolylines
             }
         }
     }
@@ -110,7 +115,6 @@ class TrackingService : LifecycleService() {
                 ACTION_PAUSE_SERVICE -> {
                     Timber.d("Paused service")
                     pauseService()
-                    // 일시정지 시 끝점 표시 후 새 라인 준비
                     addEmptyPolyline() 
                 }
                 ACTION_STOP_SERVICE -> {
@@ -123,7 +127,7 @@ class TrackingService : LifecycleService() {
     }
 
     private fun pauseService() {
-        isTracking.postValue(false)
+        _isTracking.value = false
     }
 
     private fun killService() {
@@ -131,7 +135,7 @@ class TrackingService : LifecycleService() {
         isFirstRun = true
         pauseService()
         postInitialValues()
-        GlobalScope.launch(Dispatchers.IO) {
+        lifecycleScope.launch(Dispatchers.IO) {
             mainRepository.clearTrackingPoints()
         }
         stopForeground(true)
@@ -158,7 +162,7 @@ class TrackingService : LifecycleService() {
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
             super.onLocationResult(result)
-            if (isTracking.value!!) {
+            if (isTracking.value) {
                 result.locations.let { locations ->
                     for (location in locations) {
                         addPathPoint(location)
@@ -172,33 +176,41 @@ class TrackingService : LifecycleService() {
     private fun addPathPoint(location: Location?) {
         location?.let {
             val pos = LatLng(location.latitude, location.longitude)
-            pathPoints.value?.apply {
-                last().add(pos)
-                pathPoints.postValue(this)
+            _pathPoints.update { currentPoints ->
+                val newPoints = currentPoints.toMutableList()
+                if (newPoints.isNotEmpty()) {
+                    newPoints.last().add(pos)
+                } else {
+                    newPoints.add(mutableListOf(pos))
+                }
                 
                 // DB에 실시간 저장 (복구용)
-                GlobalScope.launch(Dispatchers.IO) {
+                lifecycleScope.launch(Dispatchers.IO) {
                     mainRepository.insertTrackingPoint(
                         TrackingPoint(
                             latitude = location.latitude,
                             longitude = location.longitude,
-                            sequence = (pathPoints.value?.flatten()?.size ?: 0)
+                            sequence = newPoints.flatten().size
                         )
                     )
                 }
+                newPoints
             }
         }
     }
 
 
-    private fun addEmptyPolyline() = pathPoints.value?.apply {
-        add(mutableListOf())
-        pathPoints.postValue(this)
-    } ?: pathPoints.postValue(mutableListOf(mutableListOf()))
+    private fun addEmptyPolyline() {
+        _pathPoints.update { currentPoints ->
+            val newPoints = currentPoints.toMutableList()
+            newPoints.add(mutableListOf())
+            newPoints
+        }
+    }
 
     private fun startForegroundService() {
         addEmptyPolyline()
-        isTracking.postValue(true)
+        _isTracking.value = true
 
         val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
 
@@ -209,9 +221,9 @@ class TrackingService : LifecycleService() {
         val notificationBuilder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setAutoCancel(false)
             .setOngoing(true)
-            .setSmallIcon(R.mipmap.ic_launcher) // 실제 앱에서는 적절한 아이콘으로 교체 필요
+            .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle("Running Tracker")
-            .setContentText("00:00:00") // 타이머 연동 예정
+            .setContentText("00:00:00")
             .setContentIntent(getMainActivityPendingIntent())
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
