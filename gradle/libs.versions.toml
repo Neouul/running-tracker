@@ -12,6 +12,7 @@ googleMapsCompose = "4.4.1"
 room = "2.6.1"
 hilt = "2.51.1"
 timber = "5.0.1"
+hiltNavigationCompose = "1.2.0"
 # Play Services (통일)
 googleMaps = "19.2.0"
 playServicesLocation = "21.3.0"
@@ -48,6 +49,7 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 # Hilt
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
+androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
 
 # Location
 play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
