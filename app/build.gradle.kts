@@ -7,11 +7,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.runningtracker"
+    namespace = "com.neouul.runningtracker"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.runningtracker"
+        applicationId = "com.neouul.runningtracker"
         minSdk = 24
         targetSdk = 36
 
