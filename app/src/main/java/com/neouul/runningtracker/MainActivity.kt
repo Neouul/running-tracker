@@ -4,28 +4,25 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.viewModels
-import com.neouul.runningtracker.presentation.screen.main.MainScreen
-import com.neouul.runningtracker.presentation.screen.main.MainViewModel
 import com.neouul.runningtracker.ui.theme.RunningTrackerTheme
 import com.neouul.runningtracker.core.util.Constants.ACTION_SHOW_TRACKING_SCREEN
+import com.neouul.runningtracker.presentation.screen.main.MainRoot
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    private val viewModel: MainViewModel by viewModels()
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             RunningTrackerTheme {
-                MainScreen(viewModel)
+                MainRoot()
             }
         }
 
         navigateToTrackingFragmentIfNeeded(intent)
     }
+
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
