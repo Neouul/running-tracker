@@ -8,12 +8,13 @@ espressoCore = "3.7.0"
 lifecycleRuntimeKtx = "2.10.0"
 activityCompose = "1.12.2"
 composeBom = "2024.09.00"
-googleMaps = "18.2.0"
 googleMapsCompose = "4.4.1"
 room = "2.6.1"
 hilt = "2.51.1"
-playServicesLocation = "21.3.0"
 timber = "5.0.1"
+# Play Services (통일)
+googleMaps = "19.2.0"
+playServicesLocation = "21.3.0"
 
 
 [libraries]
