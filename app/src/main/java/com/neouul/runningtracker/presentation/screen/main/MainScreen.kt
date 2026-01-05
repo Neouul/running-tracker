@@ -35,7 +35,6 @@ import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
 
 
-
 @Composable
 fun MainScreen(
     state: MainUiState,
@@ -81,7 +80,7 @@ fun MainScreen(
                 .fillMaxWidth()
                 .weight(0.4f),
             shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 16.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White)
         ) {
             Column(
@@ -105,7 +104,8 @@ fun MainScreen(
 
                 // 컨트롤 버튼 (노랑/초록 그라데이션)
                 val gradientBrush = Brush.horizontalGradient(
-                    colors = listOf(Color(0xFFD4FC79), Color(0xFF96E6A1))
+                    colors = if (state.isTracking) listOf(Color(0xFFF0F4F2), Color(0xFFF0F4F2))
+                    else listOf(Color(0xFFD7FBE0), Color(0xFFF0FFF0))
                 )
 
                 Button(
@@ -115,7 +115,7 @@ fun MainScreen(
                         .height(60.dp),
                     shape = RoundedCornerShape(30.dp),
                     contentPadding = PaddingValues(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
                 ) {
                     Box(
                         modifier = Modifier
@@ -127,7 +127,7 @@ fun MainScreen(
                             text = if (state.isTracking) "일시 정지" else "운동 시작",
                             color = Color.Black,
                             fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
                         )
                     }
                 }
