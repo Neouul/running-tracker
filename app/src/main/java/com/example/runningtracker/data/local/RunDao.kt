@@ -22,6 +22,9 @@ interface RunDao {
     @Query("SELECT * FROM tracking_points_table ORDER BY sequence ASC")
     fun getAllTrackingPoints(): Flow<List<TrackingPoint>>
 
+    @Query("SELECT * FROM tracking_points_table ORDER BY sequence ASC")
+    suspend fun getAllTrackingPointsSync(): List<TrackingPoint>
+
     @Query("DELETE FROM tracking_points_table")
     suspend fun clearTrackingPoints()
 }

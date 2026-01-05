@@ -48,15 +48,15 @@ fun MainScreen(viewModel: MainViewModel) {
                 Manifest.permission.ACCESS_FINE_LOCATION,
                 Manifest.permission.ACCESS_COARSE_LOCATION
             )
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                permissions.add(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 permissions.add(Manifest.permission.POST_NOTIFICATIONS)
             }
+            // 주의: ACCESS_BACKGROUND_LOCATION은 여기서 함께 요청하면 시스템에서 무시할 수 있습니다.
+            // 우선 서비스 구동을 위해 필수적인 포그라운드 권한만 먼저 받습니다.
             permissionLauncher.launch(permissions.toTypedArray())
         }
     }
+
 
     Column(modifier = Modifier.fillMaxSize()) {
         // 상단 지도 영역 (60%)
@@ -118,10 +118,22 @@ fun MainScreen(viewModel: MainViewModel) {
 
                 Button(
                     onClick = {
-                        val action = if (isTracking) ACTION_PAUSE_SERVICE else ACTION_START_OR_RESUME_SERVICE
-                        Intent(context, TrackingService::class.java).also {
-                            it.action = action
-                            context.startService(it)
+                        if (TrackingUtility.hasLocationPermissions(context)) {
+                            val action = if (isTracking) ACTION_PAUSE_SERVICE else ACTION_START_OR_RESUME_SERVICE
+                            Intent(context, TrackingService::class.java).also {
+                                it.action = action
+                                androidx.core.content.ContextCompat.startForegroundService(context, it)
+                            }
+                        } else {
+                            // 권한이 없으면 다시 요청
+                            val permissions = mutableListOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            )
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+                            }
+                            permissionLauncher.launch(permissions.toTypedArray())
                         }
                     },
                     modifier = Modifier

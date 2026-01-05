@@ -16,5 +16,7 @@ class MainRepository @Inject constructor(
 
     fun getAllTrackingPoints() = runDao.getAllTrackingPoints()
 
+    suspend fun getAllTrackingPointsSync() = runDao.getAllTrackingPointsSync()
+
     suspend fun clearTrackingPoints() = runDao.clearTrackingPoints()
 }

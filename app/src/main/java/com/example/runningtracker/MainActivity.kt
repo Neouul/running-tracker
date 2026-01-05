@@ -27,10 +27,11 @@ class MainActivity : ComponentActivity() {
         navigateToTrackingFragmentIfNeeded(intent)
     }
 
-    override fun onNewIntent(intent: Intent?) {
+    override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         navigateToTrackingFragmentIfNeeded(intent)
     }
+
 
     private fun navigateToTrackingFragmentIfNeeded(intent: Intent?) {
         if (intent?.action == ACTION_SHOW_TRACKING_SCREEN) {
