@@ -8,12 +8,13 @@ plugins {
 
 android {
     namespace = "com.example.runningtracker"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.runningtracker"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
+
         versionCode = 1
         versionName = "1.0"
 
@@ -44,16 +45,19 @@ android {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.service)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.runtime.livedata)
 
     // Google Maps
-    implementation(libs.google-maps)
-    implementation(libs.google-maps-compose)
+    implementation(libs.google.maps)
+    implementation(libs.google.maps.compose)
 
     // Room
     implementation(libs.androidx.room.runtime)
@@ -61,11 +65,11 @@ dependencies {
     ksp(libs.androidx.room.compiler)
 
     // Hilt
-    implementation(libs.hilt-android)
-    ksp(libs.hilt-compiler)
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
 
     // Location
-    implementation(libs.play-services-location)
+    implementation(libs.play.services.location)
 
     // Timber
     implementation(libs.timber)
