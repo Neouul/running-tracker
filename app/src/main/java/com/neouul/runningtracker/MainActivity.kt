@@ -5,10 +5,10 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import com.neouul.runningtracker.ui.MainScreen
-import com.neouul.runningtracker.ui.MainViewModel
+import com.neouul.runningtracker.presentation.screen.main.MainScreen
+import com.neouul.runningtracker.presentation.screen.main.MainViewModel
 import com.neouul.runningtracker.ui.theme.RunningTrackerTheme
-import com.neouul.runningtracker.util.Constants.ACTION_SHOW_TRACKING_SCREEN
+import com.neouul.runningtracker.core.util.Constants.ACTION_SHOW_TRACKING_SCREEN
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint

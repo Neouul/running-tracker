@@ -1,9 +1,9 @@
-﻿package com.neouul.runningtracker.di
+﻿package com.neouul.runningtracker.core.di
 
 import android.content.Context
 import androidx.room.Room
 import com.neouul.runningtracker.data.local.RunningDatabase
-import com.neouul.runningtracker.util.Constants.RUNNING_DATABASE_NAME
+import com.neouul.runningtracker.core.util.Constants.RUNNING_DATABASE_NAME
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

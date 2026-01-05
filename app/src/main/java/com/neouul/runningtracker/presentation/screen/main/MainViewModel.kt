@@ -1,4 +1,4 @@
-﻿package com.neouul.runningtracker.ui
+﻿package com.neouul.runningtracker.presentation.screen.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

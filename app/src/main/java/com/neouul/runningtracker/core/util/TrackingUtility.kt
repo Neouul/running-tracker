@@ -1,4 +1,4 @@
-﻿package com.neouul.runningtracker.util
+﻿package com.neouul.runningtracker.core.util
 
 import android.Manifest
 import android.content.Context

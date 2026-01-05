@@ -1,4 +1,4 @@
-﻿package com.neouul.runningtracker.service
+﻿package com.neouul.runningtracker.core.service
 
 import android.annotation.SuppressLint
 import android.app.NotificationChannel
@@ -6,8 +6,8 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.PendingIntent.FLAG_IMMUTABLE
 import android.app.PendingIntent.FLAG_UPDATE_CURRENT
-import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.location.Location
 import android.os.Build
 import android.os.Looper
@@ -16,19 +16,24 @@ import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.MutableLiveData
 import com.neouul.runningtracker.R
-import com.neouul.runningtracker.util.Constants.ACTION_PAUSE_SERVICE
-import com.neouul.runningtracker.util.Constants.ACTION_START_OR_RESUME_SERVICE
-import com.neouul.runningtracker.util.Constants.ACTION_STOP_SERVICE
-import com.neouul.runningtracker.util.Constants.FASTEST_LOCATION_INTERVAL
-import com.neouul.runningtracker.util.Constants.LOCATION_UPDATE_INTERVAL
-import com.neouul.runningtracker.util.Constants.NOTIFICATION_CHANNEL_ID
-import com.neouul.runningtracker.util.Constants.NOTIFICATION_CHANNEL_NAME
-import com.neouul.runningtracker.util.Constants.NOTIFICATION_ID
+import com.neouul.runningtracker.core.util.Constants.ACTION_PAUSE_SERVICE
+import com.neouul.runningtracker.core.util.Constants.ACTION_START_OR_RESUME_SERVICE
+import com.neouul.runningtracker.core.util.Constants.ACTION_STOP_SERVICE
+import com.neouul.runningtracker.core.util.Constants.FASTEST_LOCATION_INTERVAL
+import com.neouul.runningtracker.core.util.Constants.LOCATION_UPDATE_INTERVAL
+import com.neouul.runningtracker.core.util.Constants.NOTIFICATION_CHANNEL_ID
+import com.neouul.runningtracker.core.util.Constants.NOTIFICATION_CHANNEL_NAME
+import com.neouul.runningtracker.core.util.Constants.NOTIFICATION_ID
 import com.google.android.gms.location.*
 import com.google.android.gms.maps.model.LatLng
+import com.neouul.runningtracker.MainActivity
+import com.neouul.runningtracker.core.util.Constants
+import com.neouul.runningtracker.data.local.TrackingPoint
+import com.neouul.runningtracker.data.repository.MainRepository
 import timber.log.Timber
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -39,7 +44,7 @@ typealias Polylines = MutableList<Polyline>
 class TrackingService : LifecycleService() {
 
     @Inject
-    lateinit var mainRepository: com.neouul.runningtracker.data.repository.MainRepository
+    lateinit var mainRepository: MainRepository
 
     var isFirstRun = true
     var serviceKilled = false
@@ -74,7 +79,7 @@ class TrackingService : LifecycleService() {
     private fun loadPointsFromDb() {
         // 간단한 복구 로직: 서비스를 시작할 때 DB에 저장된 포인트가 있다면 불러옴
         // (실제로는 정교한 상태 관리가 필요함)
-        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+        GlobalScope.launch(Dispatchers.IO) {
             val points = mainRepository.getAllTrackingPointsSync() 
             if (points.isNotEmpty()) {
                 val recoveredPolylines: Polylines = mutableListOf(mutableListOf())
@@ -126,7 +131,7 @@ class TrackingService : LifecycleService() {
         isFirstRun = true
         pauseService()
         postInitialValues()
-        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+        GlobalScope.launch(Dispatchers.IO) {
             mainRepository.clearTrackingPoints()
         }
         stopForeground(true)
@@ -172,9 +177,9 @@ class TrackingService : LifecycleService() {
                 pathPoints.postValue(this)
                 
                 // DB에 실시간 저장 (복구용)
-                kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                GlobalScope.launch(Dispatchers.IO) {
                     mainRepository.insertTrackingPoint(
-                        com.neouul.runningtracker.data.local.TrackingPoint(
+                        TrackingPoint(
                             latitude = location.latitude,
                             longitude = location.longitude,
                             sequence = (pathPoints.value?.flatten()?.size ?: 0)
@@ -195,7 +200,7 @@ class TrackingService : LifecycleService() {
         addEmptyPolyline()
         isTracking.postValue(true)
 
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             createNotificationChannel(notificationManager)
@@ -213,7 +218,7 @@ class TrackingService : LifecycleService() {
             startForeground(
                 NOTIFICATION_ID,
                 notificationBuilder.build(),
-                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
             )
         } else {
             startForeground(NOTIFICATION_ID, notificationBuilder.build())
@@ -223,8 +228,8 @@ class TrackingService : LifecycleService() {
     private fun getMainActivityPendingIntent() = PendingIntent.getActivity(
         this,
         0,
-        Intent(this, com.neouul.runningtracker.MainActivity::class.java).apply {
-            action = com.neouul.runningtracker.util.Constants.ACTION_SHOW_TRACKING_SCREEN
+        Intent(this, MainActivity::class.java).apply {
+            action = Constants.ACTION_SHOW_TRACKING_SCREEN
         },
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) FLAG_IMMUTABLE or FLAG_UPDATE_CURRENT else FLAG_UPDATE_CURRENT
     )

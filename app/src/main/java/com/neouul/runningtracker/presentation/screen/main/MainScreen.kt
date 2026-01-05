@@ -1,4 +1,4 @@
-﻿package com.neouul.runningtracker.ui
+﻿package com.neouul.runningtracker.presentation.screen.main
 
 import android.Manifest
 import android.content.Intent
@@ -19,11 +19,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.neouul.runningtracker.service.TrackingService
-import com.neouul.runningtracker.util.Constants.ACTION_PAUSE_SERVICE
-import com.neouul.runningtracker.util.Constants.ACTION_START_OR_RESUME_SERVICE
-import com.neouul.runningtracker.util.Constants.ACTION_STOP_SERVICE
-import com.neouul.runningtracker.util.TrackingUtility
+import androidx.core.content.ContextCompat
+import com.neouul.runningtracker.core.service.TrackingService
+import com.neouul.runningtracker.core.util.Constants.ACTION_PAUSE_SERVICE
+import com.neouul.runningtracker.core.util.Constants.ACTION_START_OR_RESUME_SERVICE
+import com.neouul.runningtracker.core.util.Constants.ACTION_STOP_SERVICE
+import com.neouul.runningtracker.core.util.TrackingUtility
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
@@ -122,7 +123,7 @@ fun MainScreen(viewModel: MainViewModel) {
                             val action = if (isTracking) ACTION_PAUSE_SERVICE else ACTION_START_OR_RESUME_SERVICE
                             Intent(context, TrackingService::class.java).also {
                                 it.action = action
-                                androidx.core.content.ContextCompat.startForegroundService(context, it)
+                                ContextCompat.startForegroundService(context, it)
                             }
                         } else {
                             // 권한이 없으면 다시 요청
