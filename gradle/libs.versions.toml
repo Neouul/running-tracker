@@ -16,6 +16,8 @@ hiltNavigationCompose = "1.2.0"
 # Play Services (통일)
 googleMaps = "19.2.0"
 playServicesLocation = "21.3.0"
+mockk = "1.13.12"
+coroutinesTest = "1.9.0"
 
 
 [libraries]
@@ -56,6 +58,8 @@ play-services-location = { group = "com.google.android.gms", name = "play-servic
 
 # Timber (Logging)
 timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }
+mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
 
 
 [plugins]
