@@ -61,11 +61,19 @@ class TrackingService : LifecycleService() {
 
         private val _pathPoints = MutableStateFlow<List<MutableList<LatLng>>>(mutableListOf())
         val pathPoints = _pathPoints.asStateFlow()
+
+        private val _timeRunInMillis = MutableStateFlow(0L)
+        val timeRunInMillis = _timeRunInMillis.asStateFlow()
+
+        private val _timeRunInSeconds = MutableStateFlow(0L)
+        val timeRunInSeconds = _timeRunInSeconds.asStateFlow()
     }
 
     private fun postInitialValues() {
         _isTracking.value = false
         _pathPoints.value = mutableListOf()
+        _timeRunInSeconds.value = 0L
+        _timeRunInMillis.value = 0L
     }
 
     override fun onCreate() {
@@ -77,6 +85,7 @@ class TrackingService : LifecycleService() {
         lifecycleScope.launch {
             isTracking.collect {
                 updateLocationTracking(it)
+                updateNotificationState(it)
             }
         }
         
@@ -128,11 +137,13 @@ class TrackingService : LifecycleService() {
 
     private fun pauseService() {
         _isTracking.value = false
+        isTimerEnabled = false
     }
 
     private fun killService() {
         serviceKilled = true
         isFirstRun = true
+        isTimerEnabled = false
         pauseService()
         postInitialValues()
         lifecycleScope.launch(Dispatchers.IO) {
@@ -209,7 +220,7 @@ class TrackingService : LifecycleService() {
     }
 
     private fun startForegroundService() {
-        addEmptyPolyline()
+        startTimer()
         _isTracking.value = true
 
         val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
@@ -254,6 +265,66 @@ class TrackingService : LifecycleService() {
             NotificationManager.IMPORTANCE_LOW
         )
         notificationManager.createNotificationChannel(channel)
+    }
+
+    private var isTimerEnabled = false
+    private var lapTime = 0L
+    private var timeRun = 0L
+    private var timeStarted = 0L
+    private var lastSecondTimestamp = 0L
+
+    private fun startTimer() {
+        addEmptyPolyline()
+        isTimerEnabled = true
+        timeStarted = System.currentTimeMillis()
+        lifecycleScope.launch {
+            while (isTimerEnabled) {
+                // 현재 시간과 시작 시간의 차이 계산
+                lapTime = System.currentTimeMillis() - timeStarted
+                _timeRunInMillis.value = timeRun + lapTime
+                if (_timeRunInMillis.value >= lastSecondTimestamp + 1000L) {
+                    _timeRunInSeconds.value += 1
+                    lastSecondTimestamp += 1000L
+                }
+                kotlinx.coroutines.delay(Constants.TIMER_UPDATE_INTERVAL)
+            }
+            timeRun += lapTime
+        }
+    }
+
+    private fun updateNotificationState(isTracking: Boolean) {
+        val notificationActionText = if (isTracking) "일시정지" else "다시 시작"
+        val pendingIntent = if (isTracking) {
+            val pauseIntent = Intent(this, TrackingService::class.java).apply {
+                action = ACTION_PAUSE_SERVICE
+            }
+            PendingIntent.getService(this, 1, pauseIntent, if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) FLAG_IMMUTABLE or FLAG_UPDATE_CURRENT else FLAG_UPDATE_CURRENT)
+        } else {
+            val resumeIntent = Intent(this, TrackingService::class.java).apply {
+                action = ACTION_START_OR_RESUME_SERVICE
+            }
+            PendingIntent.getService(this, 2, resumeIntent, if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) FLAG_IMMUTABLE or FLAG_UPDATE_CURRENT else FLAG_UPDATE_CURRENT)
+        }
+
+        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+
+        // 타이머 구독하여 알림 업데이트
+        lifecycleScope.launch {
+            timeRunInSeconds.collect {
+                if (!serviceKilled) {
+                    val notificationBuilder = NotificationCompat.Builder(this@TrackingService, NOTIFICATION_CHANNEL_ID)
+                        .setAutoCancel(false)
+                        .setOngoing(true)
+                        .setSmallIcon(R.mipmap.ic_launcher) // 실제 앱의 아이콘으로 교체 필요
+                        .setContentTitle("Running Tracker")
+                        .setContentText(com.neouul.runningtracker.core.util.TrackingUtility.getFormattedStopWatchTime(it * 1000L))
+                        .setContentIntent(getMainActivityPendingIntent())
+                        .addAction(R.drawable.ic_launcher_foreground, notificationActionText, pendingIntent)
+
+                    notificationManager.notify(NOTIFICATION_ID, notificationBuilder.build())
+                }
+            }
+        }
     }
 }
 

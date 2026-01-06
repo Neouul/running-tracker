@@ -57,11 +57,7 @@ fun MainRoot(
                 is MainEvent.TriggerService -> {
                     Intent(context, TrackingService::class.java).also {
                         it.action = event.action
-                        if (event.action == ACTION_STOP_SERVICE) {
-                            context.stopService(it)
-                        } else {
-                            ContextCompat.startForegroundService(context, it)
-                        }
+                        ContextCompat.startForegroundService(context, it)
                     }
                 }
             }
