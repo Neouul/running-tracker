@@ -16,6 +16,11 @@ hiltNavigationCompose = "1.2.0"
 # Play Services (통일)
 googleMaps = "19.2.0"
 playServicesLocation = "21.3.0"
+mockk = "1.13.12"
+coroutinesTest = "1.9.0"
+androidxTestCore = "1.6.1"
+androidxTestRunner = "1.6.2"
+rules = "1.7.0"
 
 
 [libraries]
@@ -50,12 +55,18 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
 androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
+hilt-android-testing = { group = "com.google.dagger", name = "hilt-android-testing", version.ref = "hilt" }
 
 # Location
 play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
 
 # Timber (Logging)
 timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }
+mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
+androidx-test-core-ktx = { group = "androidx.test", name = "core-ktx", version.ref = "androidxTestCore" }
+androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidxTestRunner" }
+androidx-rules = { group = "androidx.test", name = "rules", version.ref = "rules" }
 
 
 [plugins]

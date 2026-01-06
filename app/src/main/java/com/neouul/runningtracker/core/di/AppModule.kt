@@ -28,5 +28,18 @@ object AppModule {
     @Singleton
     @Provides
     fun provideRunDao(db: RunningDatabase) = db.getRunDao()
+
+    @Singleton
+    @Provides
+    fun provideFusedLocationProviderClient(
+        @ApplicationContext app: Context
+    ) = com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(app)
+
+    @Singleton
+    @Provides
+    fun provideLocationClient(
+        client: com.google.android.gms.location.FusedLocationProviderClient
+    ): com.neouul.runningtracker.domain.location.LocationClient = 
+        com.neouul.runningtracker.data.location.LocationClientImpl(client)
 }
 

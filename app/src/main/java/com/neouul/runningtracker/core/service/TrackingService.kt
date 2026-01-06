@@ -10,17 +10,10 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.location.Location
 import android.os.Build
-import android.os.Looper
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationCallback
-import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.location.LocationResult
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
 import com.google.android.gms.maps.model.LatLng
 import com.neouul.runningtracker.MainActivity
 import com.neouul.runningtracker.R
@@ -28,13 +21,14 @@ import com.neouul.runningtracker.core.util.Constants
 import com.neouul.runningtracker.core.util.Constants.ACTION_PAUSE_SERVICE
 import com.neouul.runningtracker.core.util.Constants.ACTION_START_OR_RESUME_SERVICE
 import com.neouul.runningtracker.core.util.Constants.ACTION_STOP_SERVICE
-import com.neouul.runningtracker.core.util.Constants.FASTEST_LOCATION_INTERVAL
 import com.neouul.runningtracker.core.util.Constants.LOCATION_UPDATE_INTERVAL
 import com.neouul.runningtracker.core.util.Constants.NOTIFICATION_CHANNEL_ID
 import com.neouul.runningtracker.core.util.Constants.NOTIFICATION_CHANNEL_NAME
 import com.neouul.runningtracker.core.util.Constants.NOTIFICATION_ID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import com.neouul.runningtracker.data.local.TrackingPoint
 import com.neouul.runningtracker.data.repository.MainRepository
@@ -50,10 +44,15 @@ class TrackingService : LifecycleService() {
     @Inject
     lateinit var mainRepository: MainRepository
 
+    @Inject
+    lateinit var locationClient: com.neouul.runningtracker.domain.location.LocationClient
+
     var isFirstRun = true
     var serviceKilled = false
-
-    lateinit var fusedLocationProviderClient: FusedLocationProviderClient
+    
+    // 테스트 및 안정성을 위한 커스텀 Scope (Dispatcher.Main은 테스트에서 교체됨)
+    private val serviceJob = kotlinx.coroutines.SupervisorJob()
+    private val serviceScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main + serviceJob)
 
     companion object {
         private val _isTracking = MutableStateFlow(false)
@@ -61,22 +60,30 @@ class TrackingService : LifecycleService() {
 
         private val _pathPoints = MutableStateFlow<List<MutableList<LatLng>>>(mutableListOf())
         val pathPoints = _pathPoints.asStateFlow()
+
+        private val _timeRunInMillis = MutableStateFlow(0L)
+        val timeRunInMillis = _timeRunInMillis.asStateFlow()
+
+        private val _timeRunInSeconds = MutableStateFlow(0L)
+        val timeRunInSeconds = _timeRunInSeconds.asStateFlow()
     }
 
     private fun postInitialValues() {
         _isTracking.value = false
         _pathPoints.value = mutableListOf()
+        _timeRunInSeconds.value = 0L
+        _timeRunInMillis.value = 0L
     }
 
     override fun onCreate() {
         super.onCreate()
         postInitialValues()
-        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this)
 
-        // LifecycleService의 lifecycleScope를 사용하여 Flow 수집
-        lifecycleScope.launch {
+        // 커스텀 serviceScope를 사용하여 Flow 수집
+        serviceScope.launch {
             isTracking.collect {
                 updateLocationTracking(it)
+                updateNotificationState(it)
             }
         }
         
@@ -84,7 +91,7 @@ class TrackingService : LifecycleService() {
     }
 
     private fun loadPointsFromDb() {
-        lifecycleScope.launch(Dispatchers.IO) {
+        serviceScope.launch(Dispatchers.IO) {
             val points = mainRepository.getAllTrackingPointsSync() 
             if (points.isNotEmpty()) {
                 val recoveredPolylines: MutableList<MutableList<LatLng>> = mutableListOf(mutableListOf())
@@ -128,48 +135,41 @@ class TrackingService : LifecycleService() {
 
     private fun pauseService() {
         _isTracking.value = false
+        isTimerEnabled = false
     }
 
     private fun killService() {
         serviceKilled = true
         isFirstRun = true
+        isTimerEnabled = false
         pauseService()
         postInitialValues()
-        lifecycleScope.launch(Dispatchers.IO) {
+        serviceScope.launch(Dispatchers.IO) {
             mainRepository.clearTrackingPoints()
         }
         stopForeground(true)
         stopSelf()
     }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        serviceJob.cancel() // 서비스 종료 시 모든 코루틴 취소
+    }
+
+    private var locationJob: kotlinx.coroutines.Job? = null
 
     @SuppressLint("MissingPermission")
     private fun updateLocationTracking(isTracking: Boolean) {
         if (isTracking) {
-            val request = LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, LOCATION_UPDATE_INTERVAL)
-                .setMinUpdateIntervalMillis(FASTEST_LOCATION_INTERVAL)
-                .build()
-            
-            fusedLocationProviderClient.requestLocationUpdates(
-                request,
-                locationCallback,
-                Looper.getMainLooper()
-            )
-        } else {
-            fusedLocationProviderClient.removeLocationUpdates(locationCallback)
-        }
-    }
-
-    private val locationCallback = object : LocationCallback() {
-        override fun onLocationResult(result: LocationResult) {
-            super.onLocationResult(result)
-            if (isTracking.value) {
-                result.locations.let { locations ->
-                    for (location in locations) {
-                        addPathPoint(location)
-                        Timber.d("NEW LOCATION: ${location.latitude}, ${location.longitude}")
-                    }
+            locationJob?.cancel()
+            locationJob = locationClient.getLocationUpdates(LOCATION_UPDATE_INTERVAL)
+                .onEach { location ->
+                    addPathPoint(location)
+                    Timber.d("NEW LOCATION: ${location.latitude}, ${location.longitude}")
                 }
-            }
+                .launchIn(serviceScope)
+        } else {
+            locationJob?.cancel()
         }
     }
 
@@ -185,7 +185,7 @@ class TrackingService : LifecycleService() {
                 }
                 
                 // DB에 실시간 저장 (복구용)
-                lifecycleScope.launch(Dispatchers.IO) {
+                serviceScope.launch(Dispatchers.IO) {
                     mainRepository.insertTrackingPoint(
                         TrackingPoint(
                             latitude = location.latitude,
@@ -209,7 +209,7 @@ class TrackingService : LifecycleService() {
     }
 
     private fun startForegroundService() {
-        addEmptyPolyline()
+        startTimer()
         _isTracking.value = true
 
         val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
@@ -254,6 +254,66 @@ class TrackingService : LifecycleService() {
             NotificationManager.IMPORTANCE_LOW
         )
         notificationManager.createNotificationChannel(channel)
+    }
+
+    private var isTimerEnabled = false
+    private var lapTime = 0L
+    private var timeRun = 0L
+    private var timeStarted = 0L
+    private var lastSecondTimestamp = 0L
+
+    private fun startTimer() {
+        addEmptyPolyline()
+        isTimerEnabled = true
+        timeStarted = System.currentTimeMillis()
+        serviceScope.launch {
+            while (isTimerEnabled) {
+                // 현재 시간과 시작 시간의 차이 계산
+                lapTime = System.currentTimeMillis() - timeStarted
+                _timeRunInMillis.value = timeRun + lapTime
+                if (_timeRunInMillis.value >= lastSecondTimestamp + 1000L) {
+                    _timeRunInSeconds.value += 1
+                    lastSecondTimestamp += 1000L
+                }
+                kotlinx.coroutines.delay(Constants.TIMER_UPDATE_INTERVAL)
+            }
+            timeRun += lapTime
+        }
+    }
+
+    private fun updateNotificationState(isTracking: Boolean) {
+        val notificationActionText = if (isTracking) "일시정지" else "다시 시작"
+        val pendingIntent = if (isTracking) {
+            val pauseIntent = Intent(this, TrackingService::class.java).apply {
+                action = ACTION_PAUSE_SERVICE
+            }
+            PendingIntent.getService(this, 1, pauseIntent, if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) FLAG_IMMUTABLE or FLAG_UPDATE_CURRENT else FLAG_UPDATE_CURRENT)
+        } else {
+            val resumeIntent = Intent(this, TrackingService::class.java).apply {
+                action = ACTION_START_OR_RESUME_SERVICE
+            }
+            PendingIntent.getService(this, 2, resumeIntent, if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) FLAG_IMMUTABLE or FLAG_UPDATE_CURRENT else FLAG_UPDATE_CURRENT)
+        }
+
+        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+
+        // 타이머 구독하여 알림 업데이트
+        serviceScope.launch {
+            timeRunInSeconds.collect {
+                if (!serviceKilled) {
+                    val notificationBuilder = NotificationCompat.Builder(this@TrackingService, NOTIFICATION_CHANNEL_ID)
+                        .setAutoCancel(false)
+                        .setOngoing(true)
+                        .setSmallIcon(R.mipmap.ic_launcher) // 실제 앱의 아이콘으로 교체 필요
+                        .setContentTitle("Running Tracker")
+                        .setContentText(com.neouul.runningtracker.core.util.TrackingUtility.getFormattedStopWatchTime(it * 1000L))
+                        .setContentIntent(getMainActivityPendingIntent())
+                        .addAction(R.drawable.ic_launcher_foreground, notificationActionText, pendingIntent)
+
+                    notificationManager.notify(NOTIFICATION_ID, notificationBuilder.build())
+                }
+            }
+        }
     }
 }
 

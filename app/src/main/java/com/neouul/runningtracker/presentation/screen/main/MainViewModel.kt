@@ -30,8 +30,10 @@ class MainViewModel @Inject constructor(
         // TrackingService의 StateFlow를 관찰하여 상태 업데이트
         combine(
             TrackingService.isTracking,
-            TrackingService.pathPoints
-        ) { isTracking, pathPoints ->
+            TrackingService.pathPoints,
+            TrackingService.timeRunInMillis
+        ) { isTracking, pathPoints, timeInMillis ->
+            val formattedTime = com.neouul.runningtracker.core.util.TrackingUtility.getFormattedStopWatchTime(timeInMillis)
             _state.update { 
                 it.copy(
                     isTracking = isTracking,
@@ -39,7 +41,9 @@ class MainViewModel @Inject constructor(
                         polyline.map { latLng ->
                             LocationPoint(latLng.latitude, latLng.longitude)
                         }
-                    }
+                    },
+                    timeInMillis = timeInMillis,
+                    formattedTime = formattedTime
                 )
             }
         }.launchIn(viewModelScope)
