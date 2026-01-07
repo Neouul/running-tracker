@@ -66,6 +66,12 @@ class TrackingService : LifecycleService() {
 
         private val _timeRunInSeconds = MutableStateFlow(0L)
         val timeRunInSeconds = _timeRunInSeconds.asStateFlow()
+
+        private val _distanceInMeters = MutableStateFlow(0)
+        val distanceInMeters = _distanceInMeters.asStateFlow()
+
+        private val _caloriesBurned = MutableStateFlow(0)
+        val caloriesBurned = _caloriesBurned.asStateFlow()
     }
 
     private fun postInitialValues() {
@@ -73,6 +79,8 @@ class TrackingService : LifecycleService() {
         _pathPoints.value = mutableListOf()
         _timeRunInSeconds.value = 0L
         _timeRunInMillis.value = 0L
+        _distanceInMeters.value = 0
+        _caloriesBurned.value = 0
     }
 
     override fun onCreate() {
@@ -173,6 +181,20 @@ class TrackingService : LifecycleService() {
             _pathPoints.update { currentPoints ->
                 val newPoints = currentPoints.toMutableList()
                 if (newPoints.isNotEmpty()) {
+                    val lastList = newPoints.last()
+                    if (lastList.isNotEmpty()) {
+                        val lastLatLng = lastList.last()
+                        val result = FloatArray(1)
+                        Location.distanceBetween(
+                            lastLatLng.latitude,
+                            lastLatLng.longitude,
+                            location.latitude,
+                            location.longitude,
+                            result
+                        )
+                        _distanceInMeters.update { it + result[0].toInt() }
+                        _caloriesBurned.value = TrackingUtility.calculateCalories(_distanceInMeters.value)
+                    }
                     newPoints.last().add(pos)
                 } else {
                     newPoints.add(mutableListOf(pos))

@@ -34,8 +34,10 @@ class MainViewModel @Inject constructor(
         combine(
             TrackingService.isTracking,
             TrackingService.pathPoints,
-            TrackingService.timeRunInMillis
-        ) { isTracking, pathPoints, timeInMillis ->
+            TrackingService.timeRunInMillis,
+            TrackingService.distanceInMeters,
+            TrackingService.caloriesBurned
+        ) { isTracking, pathPoints, timeInMillis, distance, calories ->
             val formattedTime = TrackingUtility.getFormattedStopWatchTime(timeInMillis)
             _state.update { 
                 it.copy(
@@ -46,7 +48,9 @@ class MainViewModel @Inject constructor(
                         }
                     },
                     timeInMillis = timeInMillis,
-                    formattedTime = formattedTime
+                    formattedTime = formattedTime,
+                    distanceInMeters = distance,
+                    caloriesBurned = calories
                 )
             }
         }.launchIn(viewModelScope)
