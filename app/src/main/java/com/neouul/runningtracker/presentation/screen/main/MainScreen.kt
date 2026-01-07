@@ -32,12 +32,13 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.Polyline
-import com.google.maps.android.compose.rememberCameraPositionState
+import com.google.maps.android.compose.CameraPositionState
 
 
 @Composable
 fun MainScreen(
     state: MainUiState,
+    cameraPositionState: CameraPositionState,
     onAction: (MainAction) -> Unit
 ) {
 
@@ -45,13 +46,6 @@ fun MainScreen(
         // 상단 지도 영역 (60%)
         Box(modifier = Modifier.weight(0.6f)) {
             if (state.hasPermissions) {
-                val lastLatLng = state.pathPoints.lastOrNull()?.lastOrNull()?.let {
-                    LatLng(it.latitude, it.longitude)
-                } ?: LatLng(37.5665, 126.9780)
-
-                val cameraPositionState = rememberCameraPositionState {
-                    position = CameraPosition.fromLatLngZoom(lastLatLng, 15f)
-                }
 
                 GoogleMap(
                     modifier = Modifier.fillMaxSize(),
@@ -156,6 +150,7 @@ fun InfoItem(label: String, value: String) {
 private fun PreviewMainScreen() {
     MainScreen(
         state = MainUiState(),
+        cameraPositionState = CameraPositionState(),
         onAction = {},
     )
 }

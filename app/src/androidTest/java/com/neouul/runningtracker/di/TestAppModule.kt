@@ -2,6 +2,7 @@ package com.neouul.runningtracker.di
 
 import android.content.Context
 import androidx.room.Room
+import com.neouul.runningtracker.core.di.AppModule
 import com.neouul.runningtracker.core.di.RepositoryModule
 import com.neouul.runningtracker.data.local.RunningDatabase
 import com.neouul.runningtracker.discovery.FakeLocationClient
