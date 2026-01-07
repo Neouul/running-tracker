@@ -56,7 +56,7 @@ fun MainRoot(
     }
 
     // 카메라 위치 상태 관리
-    val lastLatLng = state.pathPoints.lastOrNull()?.lastOrNull()?.let {
+    val lastLatLng = state.pathPoints.flatten().lastOrNull()?.let {
         LatLng(it.latitude, it.longitude)
     } ?: LatLng(37.5665, 126.9780)
 
