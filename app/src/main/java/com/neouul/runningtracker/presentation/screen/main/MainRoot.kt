@@ -18,6 +18,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.rememberCameraPositionState
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.layout.padding
 
 @Composable
 fun MainRoot(
@@ -25,27 +30,7 @@ fun MainRoot(
 ) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        viewModel.onAction(MainAction.OnPermissionsResult(permissions.values.all { it }))
-    }
-
-    LaunchedEffect(Unit) {
-        if (!state.hasPermissions && !TrackingUtility.hasLocationPermissions(context)) {
-            val permissions = mutableListOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            )
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                permissions.add(Manifest.permission.POST_NOTIFICATIONS)
-            }
-            permissionLauncher.launch(permissions.toTypedArray())
-        } else if (!state.hasPermissions) {
-            viewModel.onAction(MainAction.OnPermissionsResult(true))
-        }
-    }
+    val snackbarHostState = remember { SnackbarHostState() }
 
     // 1회성 이벤트 처리
     LaunchedEffect(Unit) {
@@ -55,7 +40,7 @@ fun MainRoot(
         viewModel.event.collect { event ->
             when (event) {
                 is MainEvent.Error -> {
-                    // Toast 표시 등
+                    snackbarHostState.showSnackbar(event.message)
                 }
                 MainEvent.RunFinished -> {
                     // 운동 종료 후 처리
@@ -91,9 +76,14 @@ fun MainRoot(
         }
     }
 
-    MainScreen(
-        state = state,
-        cameraPositionState = cameraPositionState,
-        onAction = viewModel::onAction
-    )
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { paddingValues ->
+        MainScreen(
+            state = state,
+            cameraPositionState = cameraPositionState,
+            onAction = viewModel::onAction,
+            modifier = androidx.compose.ui.Modifier.padding(paddingValues)
+        )
+    }
 }

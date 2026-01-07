@@ -8,6 +8,7 @@ import javax.inject.Inject
 import com.neouul.runningtracker.service.TrackingService
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.channels.Channel
+import android.app.Application
 import com.neouul.runningtracker.domain.model.LocationPoint
 import com.neouul.runningtracker.core.util.Constants.ACTION_PAUSE_SERVICE
 import com.neouul.runningtracker.core.util.Constants.ACTION_START_OR_RESUME_SERVICE
@@ -20,7 +21,8 @@ import com.neouul.runningtracker.domain.usecase.InsertRunUseCase
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val getRunsSortedByDateUseCase: GetRunsSortedByDateUseCase,
-    private val insertRunUseCase: InsertRunUseCase
+    private val insertRunUseCase: InsertRunUseCase,
+    private val app: Application
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(MainUiState())
@@ -64,6 +66,14 @@ class MainViewModel @Inject constructor(
             MainAction.OnToggleRun -> {
                 viewModelScope.launch {
                     if (state.value.hasPermissions) {
+                        if (!state.value.isTracking) {
+                            // 운동 시작 시 배터리 체크 (30% 이하)
+                            val batteryLevel = TrackingUtility.getBatteryLevel(app)
+                            if (batteryLevel != -1 && batteryLevel <= 30) {
+                                _event.send(MainEvent.Error("배터리가 30% 이하입니다. 운동 중 종료될 수 있습니다."))
+                            }
+                        }
+
                         val serviceAction = if (state.value.isTracking) {
                             ACTION_PAUSE_SERVICE
                         } else {
