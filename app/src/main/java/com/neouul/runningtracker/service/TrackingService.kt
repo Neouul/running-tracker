@@ -34,10 +34,8 @@ import kotlinx.coroutines.flow.update
 import com.neouul.runningtracker.data.local.TrackingPoint
 import com.neouul.runningtracker.domain.location.LocationClient
 import com.neouul.runningtracker.domain.repository.RunRepository
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -55,10 +53,6 @@ class TrackingService : LifecycleService() {
 
     var isFirstRun = true
     var serviceKilled = false
-    
-    // 테스트 및 안정성을 위한 커스텀 Scope (Dispatcher.Main은 테스트에서 교체됨)
-    private val serviceJob = SupervisorJob()
-    private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
 
     companion object {
         private val _isTracking = MutableStateFlow(false)
@@ -85,20 +79,19 @@ class TrackingService : LifecycleService() {
         super.onCreate()
         postInitialValues()
 
-        // 커스텀 serviceScope를 사용하여 Flow 수집
-        serviceScope.launch {
+        lifecycleScope.launch {
             isTracking.collect {
                 updateLocationTracking(it)
                 updateNotificationState(it)
             }
         }
-        
+
         loadPointsFromDb()
     }
 
     private fun loadPointsFromDb() {
-        serviceScope.launch(Dispatchers.IO) {
-            val points = runRepository.getAllTrackingPointsSync() 
+        lifecycleScope.launch(Dispatchers.IO) {
+            val points = runRepository.getAllTrackingPointsSync()
             if (points.isNotEmpty()) {
                 val recoveredPolylines: MutableList<MutableList<LatLng>> = mutableListOf(mutableListOf())
                 points.forEach { point ->
@@ -128,7 +121,7 @@ class TrackingService : LifecycleService() {
                 ACTION_PAUSE_SERVICE -> {
                     Timber.d("Paused service")
                     pauseService()
-                    addEmptyPolyline() 
+                    addEmptyPolyline()
                 }
                 ACTION_STOP_SERVICE -> {
                     Timber.d("Stopped service")
@@ -150,16 +143,11 @@ class TrackingService : LifecycleService() {
         isTimerEnabled = false
         pauseService()
         postInitialValues()
-        serviceScope.launch(Dispatchers.IO) {
+        lifecycleScope.launch(Dispatchers.IO) {
             runRepository.clearTrackingPoints()
         }
         stopForeground(true)
         stopSelf()
-    }
-    
-    override fun onDestroy() {
-        super.onDestroy()
-        serviceJob.cancel() // 서비스 종료 시 모든 코루틴 취소
     }
 
     private var locationJob: Job? = null
@@ -173,7 +161,7 @@ class TrackingService : LifecycleService() {
                     addPathPoint(location)
                     Timber.d("NEW LOCATION: ${location.latitude}, ${location.longitude}")
                 }
-                .launchIn(serviceScope)
+                .launchIn(lifecycleScope)
         } else {
             locationJob?.cancel()
         }
@@ -189,9 +177,8 @@ class TrackingService : LifecycleService() {
                 } else {
                     newPoints.add(mutableListOf(pos))
                 }
-                
-                // DB에 실시간 저장 (복구용)
-                serviceScope.launch(Dispatchers.IO) {
+
+                lifecycleScope.launch(Dispatchers.IO) {
                     runRepository.insertTrackingPoint(
                         TrackingPoint(
                             latitude = location.latitude,
@@ -204,7 +191,6 @@ class TrackingService : LifecycleService() {
             }
         }
     }
-
 
     private fun addEmptyPolyline() {
         _pathPoints.update { currentPoints ->
@@ -272,9 +258,8 @@ class TrackingService : LifecycleService() {
         addEmptyPolyline()
         isTimerEnabled = true
         timeStarted = System.currentTimeMillis()
-        serviceScope.launch {
+        lifecycleScope.launch {
             while (isTimerEnabled) {
-                // 현재 시간과 시작 시간의 차이 계산
                 lapTime = System.currentTimeMillis() - timeStarted
                 _timeRunInMillis.value = timeRun + lapTime
                 if (_timeRunInMillis.value >= lastSecondTimestamp + 1000L) {
@@ -303,14 +288,13 @@ class TrackingService : LifecycleService() {
 
         val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
 
-        // 타이머 구독하여 알림 업데이트
-        serviceScope.launch {
+        lifecycleScope.launch {
             timeRunInSeconds.collect {
                 if (!serviceKilled) {
                     val notificationBuilder = NotificationCompat.Builder(this@TrackingService, NOTIFICATION_CHANNEL_ID)
                         .setAutoCancel(false)
                         .setOngoing(true)
-                        .setSmallIcon(R.mipmap.ic_launcher) // 실제 앱의 아이콘으로 교체 필요
+                        .setSmallIcon(R.mipmap.ic_launcher)
                         .setContentTitle("Running Tracker")
                         .setContentText(TrackingUtility.getFormattedStopWatchTime(it * 1000L))
                         .setContentIntent(getMainActivityPendingIntent())
