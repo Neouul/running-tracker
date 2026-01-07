@@ -317,7 +317,7 @@ class TrackingService : LifecycleService() {
                         .setAutoCancel(false)
                         .setOngoing(true)
                         .setSmallIcon(R.mipmap.ic_launcher)
-                        .setContentTitle("Running Tracker")
+                        .setContentTitle("운동 중 🏃‍➡️")
                         .setContentText(TrackingUtility.getFormattedStopWatchTime(it * 1000L))
                         .setContentIntent(getMainActivityPendingIntent())
                         .addAction(R.drawable.ic_launcher_foreground, notificationActionText, pendingIntent)
