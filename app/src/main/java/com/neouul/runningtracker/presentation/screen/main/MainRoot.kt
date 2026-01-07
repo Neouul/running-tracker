@@ -11,8 +11,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
-import com.neouul.runningtracker.core.service.TrackingService
-import com.neouul.runningtracker.core.util.Constants.ACTION_STOP_SERVICE
+import com.neouul.runningtracker.service.TrackingService
 import com.neouul.runningtracker.core.util.TrackingUtility
 import androidx.hilt.navigation.compose.hiltViewModel
 

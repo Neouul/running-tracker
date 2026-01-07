@@ -11,6 +11,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
+import com.google.android.gms.location.LocationServices
+
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
@@ -33,13 +35,6 @@ object AppModule {
     @Provides
     fun provideFusedLocationProviderClient(
         @ApplicationContext app: Context
-    ) = com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(app)
-
-    @Singleton
-    @Provides
-    fun provideLocationClient(
-        client: com.google.android.gms.location.FusedLocationProviderClient
-    ): com.neouul.runningtracker.domain.location.LocationClient = 
-        com.neouul.runningtracker.data.location.LocationClientImpl(client)
+    ) = LocationServices.getFusedLocationProviderClient(app)
 }
 

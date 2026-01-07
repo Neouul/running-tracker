@@ -2,22 +2,25 @@
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.neouul.runningtracker.data.local.Run
-import com.neouul.runningtracker.data.repository.MainRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import com.neouul.runningtracker.core.service.TrackingService
+import com.neouul.runningtracker.service.TrackingService
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.channels.Channel
 import com.neouul.runningtracker.domain.model.LocationPoint
 import com.neouul.runningtracker.core.util.Constants.ACTION_PAUSE_SERVICE
 import com.neouul.runningtracker.core.util.Constants.ACTION_START_OR_RESUME_SERVICE
 import com.neouul.runningtracker.core.util.Constants.ACTION_STOP_SERVICE
+import com.neouul.runningtracker.core.util.TrackingUtility
+import com.neouul.runningtracker.domain.model.Run
+import com.neouul.runningtracker.domain.usecase.GetRunsSortedByDateUseCase
+import com.neouul.runningtracker.domain.usecase.InsertRunUseCase
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    val mainRepository: MainRepository
+    private val getRunsSortedByDateUseCase: GetRunsSortedByDateUseCase,
+    private val insertRunUseCase: InsertRunUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(MainUiState())
@@ -33,7 +36,7 @@ class MainViewModel @Inject constructor(
             TrackingService.pathPoints,
             TrackingService.timeRunInMillis
         ) { isTracking, pathPoints, timeInMillis ->
-            val formattedTime = com.neouul.runningtracker.core.util.TrackingUtility.getFormattedStopWatchTime(timeInMillis)
+            val formattedTime = TrackingUtility.getFormattedStopWatchTime(timeInMillis)
             _state.update { 
                 it.copy(
                     isTracking = isTracking,
@@ -77,9 +80,9 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    val runsSortedByDate = mainRepository.getAllRunsSortedByDate()
+    val runsSortedByDate = getRunsSortedByDateUseCase()
 
     fun insertRun(run: Run) = viewModelScope.launch {
-        mainRepository.insertRun(run)
+        insertRunUseCase(run)
     }
 }

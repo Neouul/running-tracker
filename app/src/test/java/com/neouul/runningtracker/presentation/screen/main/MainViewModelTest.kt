@@ -1,8 +1,10 @@
 package com.neouul.runningtracker.presentation.screen.main
 
 import com.google.android.gms.maps.model.LatLng
-import com.neouul.runningtracker.core.service.TrackingService
-import com.neouul.runningtracker.data.repository.MainRepository
+import com.neouul.runningtracker.service.TrackingService
+import com.neouul.runningtracker.domain.repository.RunRepository
+import com.neouul.runningtracker.domain.usecase.GetRunsSortedByDateUseCase
+import com.neouul.runningtracker.domain.usecase.InsertRunUseCase
 import io.mockk.mockk
 import io.mockk.unmockkAll
 import kotlinx.coroutines.Dispatchers
@@ -19,18 +21,22 @@ import java.lang.reflect.Field
 class MainViewModelTest {
 
     private lateinit var viewModel: MainViewModel
-    private lateinit var mainRepository: MainRepository
+    private lateinit var runRepository: RunRepository
+    private lateinit var getRunsSortedByDateUseCase: GetRunsSortedByDateUseCase
+    private lateinit var insertRunUseCase: InsertRunUseCase
     private val testDispatcher = UnconfinedTestDispatcher()
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
-        mainRepository = mockk(relaxed = true)
+        runRepository = mockk(relaxed = true)
+        getRunsSortedByDateUseCase = GetRunsSortedByDateUseCase(runRepository)
+        insertRunUseCase = InsertRunUseCase(runRepository)
         
         // 상태 초기화
         resetTrackingServiceFlows()
         
-        viewModel = MainViewModel(mainRepository)
+        viewModel = MainViewModel(getRunsSortedByDateUseCase, insertRunUseCase)
     }
 
     @After

@@ -1,4 +1,4 @@
-﻿package com.neouul.runningtracker.core.service
+﻿package com.neouul.runningtracker.service
 
 import android.annotation.SuppressLint
 import android.app.NotificationChannel
@@ -25,15 +25,21 @@ import com.neouul.runningtracker.core.util.Constants.LOCATION_UPDATE_INTERVAL
 import com.neouul.runningtracker.core.util.Constants.NOTIFICATION_CHANNEL_ID
 import com.neouul.runningtracker.core.util.Constants.NOTIFICATION_CHANNEL_NAME
 import com.neouul.runningtracker.core.util.Constants.NOTIFICATION_ID
+import com.neouul.runningtracker.core.util.TrackingUtility
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import com.neouul.runningtracker.data.local.TrackingPoint
-import com.neouul.runningtracker.data.repository.MainRepository
-import dagger.hilt.android.AndroidEntryPoint
+import com.neouul.runningtracker.domain.location.LocationClient
+import com.neouul.runningtracker.domain.repository.RunRepository
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
@@ -42,17 +48,17 @@ import javax.inject.Inject
 class TrackingService : LifecycleService() {
 
     @Inject
-    lateinit var mainRepository: MainRepository
+    lateinit var runRepository: RunRepository
 
     @Inject
-    lateinit var locationClient: com.neouul.runningtracker.domain.location.LocationClient
+    lateinit var locationClient: LocationClient
 
     var isFirstRun = true
     var serviceKilled = false
     
     // 테스트 및 안정성을 위한 커스텀 Scope (Dispatcher.Main은 테스트에서 교체됨)
-    private val serviceJob = kotlinx.coroutines.SupervisorJob()
-    private val serviceScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main + serviceJob)
+    private val serviceJob = SupervisorJob()
+    private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
 
     companion object {
         private val _isTracking = MutableStateFlow(false)
@@ -92,7 +98,7 @@ class TrackingService : LifecycleService() {
 
     private fun loadPointsFromDb() {
         serviceScope.launch(Dispatchers.IO) {
-            val points = mainRepository.getAllTrackingPointsSync() 
+            val points = runRepository.getAllTrackingPointsSync() 
             if (points.isNotEmpty()) {
                 val recoveredPolylines: MutableList<MutableList<LatLng>> = mutableListOf(mutableListOf())
                 points.forEach { point ->
@@ -145,7 +151,7 @@ class TrackingService : LifecycleService() {
         pauseService()
         postInitialValues()
         serviceScope.launch(Dispatchers.IO) {
-            mainRepository.clearTrackingPoints()
+            runRepository.clearTrackingPoints()
         }
         stopForeground(true)
         stopSelf()
@@ -156,7 +162,7 @@ class TrackingService : LifecycleService() {
         serviceJob.cancel() // 서비스 종료 시 모든 코루틴 취소
     }
 
-    private var locationJob: kotlinx.coroutines.Job? = null
+    private var locationJob: Job? = null
 
     @SuppressLint("MissingPermission")
     private fun updateLocationTracking(isTracking: Boolean) {
@@ -186,7 +192,7 @@ class TrackingService : LifecycleService() {
                 
                 // DB에 실시간 저장 (복구용)
                 serviceScope.launch(Dispatchers.IO) {
-                    mainRepository.insertTrackingPoint(
+                    runRepository.insertTrackingPoint(
                         TrackingPoint(
                             latitude = location.latitude,
                             longitude = location.longitude,
@@ -275,7 +281,7 @@ class TrackingService : LifecycleService() {
                     _timeRunInSeconds.value += 1
                     lastSecondTimestamp += 1000L
                 }
-                kotlinx.coroutines.delay(Constants.TIMER_UPDATE_INTERVAL)
+                delay(Constants.TIMER_UPDATE_INTERVAL)
             }
             timeRun += lapTime
         }
@@ -306,7 +312,7 @@ class TrackingService : LifecycleService() {
                         .setOngoing(true)
                         .setSmallIcon(R.mipmap.ic_launcher) // 실제 앱의 아이콘으로 교체 필요
                         .setContentTitle("Running Tracker")
-                        .setContentText(com.neouul.runningtracker.core.util.TrackingUtility.getFormattedStopWatchTime(it * 1000L))
+                        .setContentText(TrackingUtility.getFormattedStopWatchTime(it * 1000L))
                         .setContentIntent(getMainActivityPendingIntent())
                         .addAction(R.drawable.ic_launcher_foreground, notificationActionText, pendingIntent)
 

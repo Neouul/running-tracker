@@ -5,6 +5,7 @@ import android.os.Looper
 import com.google.android.gms.maps.model.LatLng
 import com.neouul.runningtracker.data.repository.MainRepository
 import com.neouul.runningtracker.domain.location.LocationClient
+import com.neouul.runningtracker.service.TrackingService
 import io.mockk.*
 import io.mockk.mockkStatic
 import kotlinx.coroutines.Dispatchers
@@ -80,7 +81,7 @@ class TrackingServiceTest {
 
     @Suppress("UNCHECKED_CAST")
     private fun <T> updatePrivateFlowValue(fieldName: String, value: T) {
-        val field = findField(TrackingService::class.java, fieldName) 
+        val field = findField(TrackingService::class.java, fieldName)
             ?: findField(TrackingService.Companion::class.java, fieldName)
             ?: throw NoSuchFieldException("Field $fieldName not found in TrackingService or Companion")
             

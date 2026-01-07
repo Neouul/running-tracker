@@ -10,10 +10,10 @@ import kotlinx.coroutines.flow.Flow
 interface RunDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertRun(run: Run)
-
+    suspend fun insertRun(run: RunEntity)
+ 
     @Query("SELECT * FROM running_table ORDER BY timestamp DESC")
-    fun getAllRunsSortedByDate(): Flow<List<Run>>
+    fun getAllRunsSortedByDate(): Flow<List<RunEntity>>
 
     // 데이터 복구용: 현재 진행 중인 좌표들 가져오기
     @Insert(onConflict = OnConflictStrategy.REPLACE)

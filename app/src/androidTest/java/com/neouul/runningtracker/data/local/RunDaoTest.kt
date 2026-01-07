@@ -40,7 +40,7 @@ class RunDaoTest {
     @Test
     fun insertRun_shouldReturnInsertedRun() = runTest {
         // Given
-        val run = Run(
+        val run = RunEntity(
             timestamp = 123L,
             avgSpeedInKMH = 10f,
             distanceInMeters = 100,
