@@ -44,5 +44,16 @@ object TrackingUtility {
     fun calculateCalories(distanceInMeters: Int, weight: Float = 70f): Int {
         return ((distanceInMeters / 1000f) * weight).toInt()
     }
+
+    fun getBatteryLevel(context: Context): Int {
+        val intent = context.registerReceiver(null, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED))
+        val level = intent?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val scale = intent?.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1) ?: -1
+        return if (level >= 0 && scale > 0) {
+            (level * 100 / scale.toFloat()).toInt()
+        } else {
+            -1
+        }
+    }
 }
 

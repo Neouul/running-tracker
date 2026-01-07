@@ -18,6 +18,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,10 +40,10 @@ import com.google.maps.android.compose.CameraPositionState
 fun MainScreen(
     state: MainUiState,
     cameraPositionState: CameraPositionState,
-    onAction: (MainAction) -> Unit
+    onAction: (MainAction) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = modifier.fillMaxSize()) {
         // 상단 지도 영역 (60%)
         Box(modifier = Modifier.weight(0.6f)) {
             if (state.hasPermissions) {

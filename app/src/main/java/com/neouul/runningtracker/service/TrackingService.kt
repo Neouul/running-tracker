@@ -6,9 +6,12 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.PendingIntent.FLAG_IMMUTABLE
 import android.app.PendingIntent.FLAG_UPDATE_CURRENT
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.location.Location
+import android.os.BatteryManager
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
@@ -33,6 +36,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import com.neouul.runningtracker.data.local.TrackingPoint
 import com.neouul.runningtracker.domain.location.LocationClient
+import com.neouul.runningtracker.domain.model.Run
 import com.neouul.runningtracker.domain.repository.RunRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
@@ -83,6 +87,63 @@ class TrackingService : LifecycleService() {
         _caloriesBurned.value = 0
     }
 
+    private val batteryReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == Intent.ACTION_BATTERY_CHANGED) {
+                val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+                val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+                val batteryPct = level * 100 / scale.toFloat()
+
+                if (batteryPct <= 20 && _isTracking.value) {
+                    Timber.d("Battery low ($batteryPct%), force saving and stopping...")
+                    forceSaveAndStop()
+                }
+            }
+        }
+    }
+
+    private var isForceStopping = false
+
+    private fun forceSaveAndStop() {
+        if (isForceStopping) return
+        isForceStopping = true
+        
+        // 즉시 운동 중지 상태로 변경 (타이머 및 위치 추적 중단)
+        pauseService()
+        
+        lifecycleScope.launch(Dispatchers.IO) {
+            val distanceMeters = _distanceInMeters.value
+            val timeMillis = _timeRunInMillis.value
+            val calories = _caloriesBurned.value
+            val avgSpeed = if (timeMillis > 0) {
+                (distanceMeters / 1000f) / (timeMillis / 3600000f)
+            } else 0f
+
+            val run = Run(
+                img = null,
+                timestamp = System.currentTimeMillis(),
+                avgSpeedInKMH = avgSpeed,
+                distanceInMeters = distanceMeters,
+                timeInMillis = timeMillis,
+                caloriesBurned = calories
+            )
+            
+            try {
+                // 데이터베이스 저장 완료 대기
+                runRepository.insertRun(run)
+                Timber.d("Workout saved successfully during force stop")
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to save workout during force stop")
+            } finally {
+                // 저장 시도 후 반드시 서비스 종료
+                launch(Dispatchers.Main) {
+                    killService()
+                    isForceStopping = false
+                }
+            }
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         postInitialValues()
@@ -95,6 +156,16 @@ class TrackingService : LifecycleService() {
         }
 
         loadPointsFromDb()
+        registerReceiver(batteryReceiver, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED))
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        try {
+            unregisterReceiver(batteryReceiver)
+        } catch (e: Exception) {
+            Timber.e(e, "Error unregistering battery receiver")
+        }
     }
 
     private fun loadPointsFromDb() {
